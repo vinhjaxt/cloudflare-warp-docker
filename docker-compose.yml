@@ -1,0 +1,36 @@
+services:
+  warp:
+    build:
+      context: .
+      network: host
+      dockerfile_inline: |
+        FROM debian:bookworm
+        WORKDIR /tmp/
+        RUN apt update -y && apt install -y curl ca-certificates && \
+          curl -OL https://pkg.cloudflareclient.com/pool/bookworm/main/c/cloudflare-warp/cloudflare-warp_2024.4.133-1_amd64.deb && \
+          rm -rf /var/lib/apt/lists/*
+        RUN apt update -y && apt install -y /tmp/cloudflare-warp_2024.4.133-1_amd64.deb && \
+          rm -rf /var/lib/apt/lists/* /tmp/cloudflare-warp_2024.4.133-1_amd64.deb
+        RUN apt update -y && apt install -y iptables && \
+          rm -rf /var/lib/apt/lists/*
+    entrypoint: /entrypoint.sh
+    volumes:
+      - ./warp-entrypoint.sh:/entrypoint.sh:ro
+    dns:
+      - 1.1.1.1
+    dns_search: .
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
+    restart: unless-stopped
+    networks:
+      - default
+    healthcheck:
+      test: '[ -f /tmp/warp-connected ]'
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 3s
+    sysctls:
+        - net.ipv4.ip_forward=1
+        - net.ipv4.tcp_timestamps=0
